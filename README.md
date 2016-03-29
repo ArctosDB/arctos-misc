@@ -1,3 +1,0 @@
-# arctos-misc
-
-read this
