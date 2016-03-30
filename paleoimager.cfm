@@ -102,11 +102,11 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 
 <br><a href="paleoimager.cfm?action=findAllDng">findAllDng</a>
 <br><a href="paleoimager.cfm?action=IsImgOnArctos">IsImgOnArctos</a>
-<br><a href="paleoimager.cfm?action=push_to_tacc">push_to_tacc</a>
+	<br><a href="paleoimager.cfm?action=push_to_tacc">push_to_tacc</a>
 <br><a href="paleoimager.cfm?action=cleanup">cleanup</a>
 
 
-<br><a href="paleoimager.cfm?action=recoverprobablyActallyTrash">recoverprobablyActallyTrash</a>
+<br><a href="paleoimager.cfm?action=recovernotReallyTrashAfterAll">recovernotReallyTrashAfterAll</a>
 
 
 
@@ -115,6 +115,50 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 
 
 <cfoutput>
+	<!--- before running recovernotReallyTrashAfterAll, push the non-dnged-cr2s in /imgTemp/forDNG back to make DNGs --->
+
+	<!---- now move the stuff from probablyActallyTrash to where it can be processed ---->
+	<cfif action is "recovernotReallyTrashAfterAll">
+		<cfdirectory action="list" filter="*.dng" directory="/imgTemp/notReallyTrashAfterAll" name="d" type="file">
+		<cfset x=0>
+		<cfloop query="d">
+			<cfif x lt 2000>
+				<cfset x=x+1>
+				<cfset fname=listfirst(name,".")>
+				<br>#fname#
+
+				<!--- move the DNG ---->
+				<cffile action="move" source="/imgTemp/notReallyTrashAfterAll/#fname#.dng" destination="#newDNGPath#/#fname#.dng" nameconflict="overwrite">
+				<!---- and the raw if there is one, because ---->
+				<cfif fileexists("/imgTemp/notReallyTrashAfterAll/#fname#.cr2")>
+					<cffile action="move" source="/imgTemp/notReallyTrashAfterAll/#fname#.cr2" destination="#newDNGPath#/#fname#.cr2" nameconflict="overwrite">
+				</cfif>
+				<!--- and pretend like we just found it.... ---->
+				<cfquery name="d" datasource="p_imager">
+					update image set error_date=null,checked_arctos_date=null,found_arctos_date=null,pushed_to_tacc_date=null where filename='#fname#'
+				</cfquery>
+
+			</cfif>
+		</cfloop>
+	</cfif>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	<cfif action is "taccreport">
 		<cfquery name="d" datasource="p_imager">
 			select
@@ -129,19 +173,11 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 			DESC
 		</cfquery>
 		<cfdump var=#d#>
-
-
-
-		,
-
 	</cfif>
-
-
+<!------------------------------------>
 	<cfif action is "cleanup">
 		<!---
 			move pushed images (DNG and CR2) from #newDNGPath# to #pushedPath#
-
-
 		---->
 		<cfquery name="d" datasource="p_imager">
 			select
@@ -177,8 +213,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 			<hr>#fileName#
 			<cftry>
 				<cfquery name="new" datasource="p_imager">
-					update image set found_dng=current_timestamp()
-					where filename='#fileName#'
+					update image set found_dng=current_timestamp() where filename='#fileName#'
 				</cfquery>
 				<br>woopee
 				<cfcatch>
@@ -195,14 +230,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 			not on tacc
 		--->
 		<cfquery name="d" datasource="p_imager">
-			select
-				fileName
-			from
-				image
-			where
-				pushed_to_tacc_date is null and
-				error_date is null and
-				found_dng is not null
+			select fileName from image where pushed_to_tacc_date is null and error_date is null and found_dng is not null
 			limit 0,40
 		</cfquery>
 		<!----
@@ -215,7 +243,8 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 				<cfset providerMethods = CreateObject('java','java.security.Security')>
 				<cfset providerMethods.removeProvider('JsafeJCE')>
 				<cfcatch>
-					<br>fail@#cfcatch.message# #cfcatch.detail#
+					<br>fail@
+					<!----#cfcatch.message# #cfcatch.detail#---->
 				</cfcatch>
 			</cftry>
 
@@ -296,13 +325,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 <!------------------------------------------------------------------------------------->
 	<cfif action is "push_to_dng">
 		<cfquery name="d" datasource="p_imager">
-			select
-				filename
-			from
-				image
-			where
-				pushed_to_dng_date is null
-			limit 0,500
+			select filename from image where pushed_to_dng_date is null	limit 0,500
 		</cfquery>
 		#d.recordcount#
 		<cfloop query="d">
@@ -393,26 +416,6 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 	</cfif>
 
 
-<!---- now move the stuff from probablyActallyTrash to where it can be processed ---->
-<cfif action is "recoverprobablyActallyTrash">
-	<cfdirectory action="list" filter="*.dng" directory="/imgTemp/probablyActallyTrash" name="d" type="file">
-	<cfset x=0>
-	<cfloop query="d">
-		<cfif x lt 100>
-			<cfset fname=listfirst(name,".")>
-			<br>#fname#
-			<cfif fileexists("/imgTemp/probablyActallyTrash/#fname#.cr2")>
-				<br>got a cr2
-			<cfelse>
-				<br>no cr2
-			</cfif>
-		</cfif>
-
-
-	</cfloop>
-
-
-</cfif>
 
 
 
@@ -566,4 +569,5 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 		</cfloop>
 		--->
 	</cfif>
+</cfoutput>
 
