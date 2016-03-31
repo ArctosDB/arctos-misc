@@ -107,6 +107,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 
 
 <br><a href="paleoimager.cfm?action=recovernotReallyTrashAfterAll">recovernotReallyTrashAfterAll</a>
+<br><a href="paleoimager.cfm?action=yunomove">yunomove</a>
 
 
 
@@ -115,6 +116,39 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 
 
 <cfoutput>
+
+	<cfif action is "cracks">
+		<cfdirectory action="list" filter="*.dng" directory="/imgTemp/newDNG" name="d" type="file">
+		<cfloop query="d">
+			<cfset fname=listfirst(name,".")>
+			<br>#fname#
+			<cfquery name="d" datasource="p_imager">
+				select count(*) c from image where filename='#fname#'
+			</cfquery>
+			<cfif d.c is 0>
+				<cfquery name="i" datasource="p_imager">
+					insert into image (filename,found_cr2,pushed_to_dng_date,found_dng) values ('#fname#',current_timestamp(),current_timestamp(),current_timestamp())
+				</cfquery>
+
+
+				<br>^^NEWFILE
+			</cfif>
+		</cfloop>
+	</cfif>
+
+
+
+	<cfif action is "yunomove">
+		<cfdirectory action="list" filter="*.cr2" directory="/Image" name="d" type="file">
+		<cfloop query="d">
+			<br>#name#
+			<cfif fileexists("/imgTemp/newDNG/#name#")>
+				this is a copy
+				<cffile action="move" source="#imgPath#/#name#" destination="#makeDNGPath#/#name#" nameconflict="overwrite">
+			</cfif>
+		</cfloop>
+	</cfif>
+
 	<!--- before running recovernotReallyTrashAfterAll, push the non-dnged-cr2s in /imgTemp/forDNG back to make DNGs --->
 
 	<!---- now move the stuff from probablyActallyTrash to where it can be processed ---->
@@ -330,7 +364,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 		#d.recordcount#
 		<cfloop query="d">
 				<cftry>
-					<cffile action="move" source="#imgPath#/#filename#.cr2" destination="#makeDNGPath#/#filename#.cr2">
+					<cffile action="move" source="#imgPath#/#filename#.cr2" destination="#makeDNGPath#/#filename#.cr2" nameconflict="overwrite">
 					<cfquery name="log" datasource="p_imager">
 						update image set pushed_to_dng_date=current_timestamp() where
 						filename='#filename#'
@@ -379,15 +413,30 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 		---->
 
 		<cfset x=0>
-		<cfdirectory action="list" filter="*.dng" directory="/imgTemp/trash" name="d" type="file">
+		<cfdirectory action="list" filter="*.CR2" directory="/Image" name="d" type="file">
 		<cfloop query="d">
-			<cfif x lt 10>
+			<cfif x lt 100>
+				<cfset filename=listfirst(name,".")>
 				<cfset x=x+1>
-				<!----
-				<br>#Name#
-				---->
-				<cfhttp url="http://arctos.database.museum/component/DSFunctions.cfc?method=getMediaByExactFilename&filename=#Name#&returnformat=json&queryformat=column">
+				#filename#
+				<cfhttp url="http://arctos.database.museum/component/DSFunctions.cfc?method=getMediaByExactFilename&filename=#filename#.dng&returnformat=json&queryformat=column">
 				</cfhttp>
+				<cfif cfhttp.filecontent is "1">
+					<cffile action="move" source="/Image/#name#" destination="/imgTemp/probablyActallyTrash/#name#" nameconflict="overwrite">
+					<br>moved
+				<cfelse>
+					<!--- make DNG ---->
+					<cffile action="move" source="/Image/#name#" destination="#makeDNGPath#/#filename#.cr2" nameconflict="overwrite">
+					<cfquery name="log" datasource="p_imager">
+						update image set pushed_to_dng_date=current_timestamp(),checked_arctos_date=null,found_arctos_date=null,
+						pushed_to_tacc_date=null, found_dng=null,error_date=null,deleted_date=null where
+						filename='#filename#'
+					</cfquery>
+				</cfif>
+				<!----
+				#filename#
+
+
 				<cfif cfhttp.filecontent is not "1">
 					<cffile action="move" source="#trash#/#name#" destination="/imgTemp/notReallyTrashAfterAll/#name#" nameconflict="overwrite">
 					<br>recovered DNG
@@ -411,6 +460,7 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 					</cfcatch>
 					</cftry>
 				</cfif>
+				---->
 			</cfif>
 		</cfloop>
 	</cfif>
