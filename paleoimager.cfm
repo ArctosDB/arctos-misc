@@ -117,6 +117,24 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 
 <cfoutput>
 
+	<cfif action is "not_really_deleted">
+		<!----
+			for things in newDNGPath
+			see if they're marked as deleted
+			unmark if so
+
+		---->
+
+		<cfdirectory action="list" filter="*.CR2" directory="#newDNGPath#" name="d" type="file">
+		<cfloop query="d">
+			<cfset fname=listfirst(name,".")>
+			<cfquery name="log" datasource="p_imager">
+				update image set deleted_date=null, notes='still here' where filename='#fname#'
+			</cfquery>
+			<br>update image set deleted_date=null, notes='still here' where filename='#fname#'
+
+		</cfloop>
+	</cfif>
 	<cfif action is "cracks">
 		<cfdirectory action="list" filter="*.dng" directory="/imgTemp/newDNG" name="d" type="file">
 		<cfloop query="d">
@@ -235,6 +253,9 @@ svn checkout http://arctos.googlecode.com/svn/arctos/imager .
 				</cfquery>
 			<cfcatch>
 				<br>fail@#cfcatch.message# #cfcatch.detail#
+				<cfquery name="d" datasource="p_imager">
+					update image set notes=concat('cleanup failure on ' , current_timestamp()) where filename='#filename#'
+				</cfquery>
 			</cfcatch>
 			</cftry>
 		</cfloop>
